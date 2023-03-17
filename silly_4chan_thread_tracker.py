@@ -58,92 +58,135 @@ def track_hilo():
         threads_tracking.add(h)
 
 
-def imprime_hilos_seguidos():
-    if len(threads_tracking) == 0:
+def imprime_hilos(hilos):
+    if len(hilos) == 0:
         print("No hay hilos")
     else:
-        imprime_elementos(threads_tracking)
+        imprime_elementos(hilos)
     print()
+
+
+def agregar_palabra(palabras):
+    p = input("Palabra: ")
+    palabras.add(p)
+
+
+def eliminar_palabra(palabras):
+    p = input("Palabra: ")
+    if palabra in palabras:
+        palabras.remove(p)
+    
+    else:
+        print(f"{p} no se encuentra en el conjunto")
+
+
+def buscar_hilos(hilos, palabras):
+    if len(palabras) == 0:
+        print("No hay palabras agregadas.")
+        return
+            
+    tablero = input("Tablero: ")
+    if functions.exists_board_by_id(tablero):
+        h = functions.get_threads_by_keywords(tablero, palabras)
+                
+        if len(h) == 0:
+            print("No se han encontrado hilos con esos palabras")
+                
+        else:
+            print(f"Se han encontrado {len(h)} hilos")
+            s = input("Agregar? (S/n)")
+            if s != 'N' and s != 'n':
+                hilos.update(h)
+                print("Se agregaron los hilos")
+            else:
+                print("No se agregó nada")
+
+
+def descargar_hilo(hilo):
+    pool.apply_async(func=functions.download_thread, args=(tablero, hilo), callback=callback_exito, error_callback=callback_error)
+
+
+def salir():
+    print("Se ha salido del menu principal.")
+    s = input("Esperar a que terminen de ejecutarse los procesos? [S/n]")
+    if s == 'N' or s == 'n':
+        pool.terminate()
+        print("Se han detenido todos los procesos")
+        
+    else:
+        pool.close()
+        print("Esperando procesos...")
+        pool.join()
+        print("Todos los procesos se han terminado.")
+    
+    print("Saliendo")
+
+
+def descargar_hilo_manual(hilos):
+    if len(hilos) == 0:
+        print("No hay hilos")
+        return
+    
+    print("Están registrados los siguientes hilos:")
+    imprime_elementos(hilos)
+                
+    hilo = input("Id hilo a descargar: ")
+    descargar_hilo(hilo)
+    hilos.remove(hilo)
+
+
+def descargar_todos_hilos(hilos):
+    for hilo in hilos_tmp:
+        if hilo not in threads_tracking:
+            print(f"Descargando hilo {hilo}")
+            descargar_hilo(hilo)
+    agregar_hilos_seguidos(hilos)
+    limpiar_conjunto(hilos)
+
+
+def limpiar_conjunto(conjunto):
+    conjunto.clear()
+
+
+def limpiar(elementos):
+    s = input(f"Se van a eliminar {len(elementos)} elementos, continuar? [S/n]")
+    if s != 'N' and s != 'n':
+        limpiar_conjunto(elementos)
+        print("Se eliminaron los elementos")
+        return
+    
+    print("No se eliminó nada")
 
 
 def buscar_hilos_por_palabras_menu():
     palabras = set()
     hilos_tmp = set()
-    tablero = ''
     while True:
         imprime_menu(commands_por_palabra)
-        
         seleccion = input("Selección: ")
-        
         if seleccion == '1':
-            palabra = input("Palabra: ")
-            palabras.add(palabra)
+            agregar_palabra(palabras)
         
         elif seleccion == '2':
-            palabra = input("Palabra: ")
-            
-            if palabra in palabras:
-                palabras.remove(palabra)
-            
-            else:
-                print(f"{palabra} no se encuentra en las palabras")
+            eliminar_palabra(palabras)
         
         elif seleccion == '3':
             imprime_elementos(palabras)
         
         elif seleccion == '4':            
-            if len(palabras) == 0:
-                print("No hay palabras agregadas.")
-                continue
-            
-            tablero = input("Tablero: ")
-            
-            if functions.exists_board_by_id(tablero):
-                hilos = functions.get_threads_by_keywords(tablero, palabras)
-                
-                if len(hilos) == 0:
-                    print("No se han encontrado hilos con esos palabras")
-                
-                else:
-                    print(f"Se han encontrado {len(hilos)} hilos")
-                    s = input("Agregar? (S/n)")
-                    if s != 'N' and s != 'n':
-                        hilos_tmp.update(hilos)
-                        print("Se agregaron los hilos")
-                    else:
-                        print("No se agregó nada")
+            buscar_hilos(hilos_tmp, palabras)
         
         elif seleccion == '5':
-            palabras.clear()
+            limpiar_conjunto(palabras)
             
         elif seleccion == '6':
-            if len(hilos_tmp) == 0:
-                print("No hay hilos")
-                continue
-            
-            for i, hilo in enumerate(hilos_tmp):
-                print(f"{i}. {hilo}")
-                
-            hilo = input("Id hilo a descargar: ")
-            pool.apply_async(func=functions.download_thread, args=(tablero, hilo), callback=callback_exito, error_callback=callback_error)
-            hilos_tmp.remove(hilo)
+            descargar_hilo_manual(hilos_tmp)
             
         elif seleccion == '7':
-            for hilo in hilos_tmp:
-                if hilo not in threads_tracking:
-                    print(f"Descargando hilo {hilo}")
-                    pool.apply_async(func=functions.download_thread, args=(tablero, hilo), callback=callback_exito, error_callback=callback_error)
-            agregar_hilos_seguidos(hilos_tmp)
-            hilos_tmp.clear()
+            descargar_todos_hilos(hilos)
                 
         elif seleccion == '8':
-            if len(threads_tracking) == 0:
-                print("No hay hilos")
-                continue
-            
-            print("Hilos seguidos")
-            for i, hilo in enumerate(threads_tracking):
-                print(f"{i}. {hilo} - {type(hilo)}")
+            imprime_hilos(hilos_tmp)
                 
         elif seleccion == '0':
             break
@@ -160,24 +203,11 @@ def main():
             track_hilo()
             
         elif seleccion == '3':
-            imprime_hilos_seguidos()
+            imprime_hilos(threads_tracking)
             
         elif seleccion == '0':
+            salir()
             break
-    
-    print("Se ha salido del menu principal.")
-    s = input("Esperar a que terminen de ejecutarse los procesos? [S/n]")
-    if s == 'N' or s == 'n':
-        pool.terminate()
-        print("Se han detenido todos los procesos")
-        
-    else:
-        pool.close()
-        print("Esperando procesos...")
-        pool.join()
-        print("Todos los procesos se han terminado.")
-    
-    print("Saliendo")
         
 if __name__ == '__main__':
     main()
