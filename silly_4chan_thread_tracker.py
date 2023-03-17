@@ -17,10 +17,10 @@ pool = Pool()
 
 commands_por_palabra = ["Agregar palabra", "Quitar palabra", "Imprimir palabras",
                         "Buscar hilos", "Limpiar palabras", "Descargar hilo",
-                        "Descargar todos los hilos", "Imprimir todos los hilos",
+                        "Descargar todos los hilos", "Seguir todos los hilos", "Imprimir todos los hilos",
                         "Regresar"]
 
-commands_menu_principal = ["Buscar hilos con palabras clave", "Track hilo", "Imprime hilos seguidos", "Salir"]
+commands_menu_principal = ["Buscar hilos con palabras clave", "Track hilo", "Imprime hilos seguidos", "Terminar hilos", "Salir"]
 
 
 def callback_exito(thread_id):
@@ -49,13 +49,25 @@ def imprime_menu(commands):
     
     imprime_elementos(commands)
     
+    
+def track_hilo(tablero, hilo):
+    if hilo not in threads_tracking:
+        pool.apply_async(func=functions.track_thread, args=(tablero, hilo), callback=callback_exito, error_callback=callback_error)
+        threads_tracking.add(hilo)
+    
 
-def track_hilo():
+def track_hilo_manual():
     t = input("Tablero: ")
     h = input("Hilo a seguir: ")
     if h not in threads_tracking:
-        pool.apply_async(func=functions.track_thread, args=(t, h), callback=callback_exito, error_callback=callback_error)
-        threads_tracking.add(h)
+        track_hilo(t, h)
+        
+def track_hilos(hilos):
+    t = input("Tablero: ")
+    for hilo in hilos:
+        print(f"Siguiento hilo {hilo}")
+        track_hilo(t, hilo)
+        hilos.remove(hilo)
 
 
 def imprime_hilos(hilos):
@@ -142,6 +154,14 @@ def descargar_todos_hilos(hilos):
             descargar_hilo(hilo)
     agregar_hilos_seguidos(hilos)
     limpiar_conjunto(hilos)
+    
+def descargar_todos_hilos(hilos):
+    for hilo in hilos_tmp:
+        if hilo not in threads_tracking:
+            print(f"Siguiendo hilo {hilo}")
+            descargar_hilo(hilo)
+    agregar_hilos_seguidos(hilos)
+    limpiar_conjunto(hilos)
 
 
 def limpiar_conjunto(conjunto):
@@ -184,8 +204,11 @@ def buscar_hilos_por_palabras_menu():
             
         elif seleccion == '7':
             descargar_todos_hilos(hilos)
-                
+            
         elif seleccion == '8':
+            track_hilos(hilos_tmp)
+                
+        elif seleccion == '9':
             imprime_hilos(hilos_tmp)
                 
         elif seleccion == '0':
@@ -200,10 +223,13 @@ def main():
             buscar_hilos_por_palabras_menu()
         
         elif seleccion == '2':
-            track_hilo()
+            track_hilo_manual()
             
         elif seleccion == '3':
             imprime_hilos(threads_tracking)
+            
+        elif seleccion == '4':
+            terminar_hilo()
             
         elif seleccion == '0':
             salir()
