@@ -31,6 +31,9 @@ def make_request(url, **kwargs):
                 print(f"Reintentando conexión con {url}")
                 
             r = requests.get(url, **kwargs)
+            
+            if not first_time:
+                print("Conexión exitosa a {url}")
             return r
             
         except requests.ConnectionError as error:
