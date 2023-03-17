@@ -27,8 +27,6 @@ def make_request(url, **kwargs):
     while True:
         try:
             r = requests.get(url, **kwargs)
-            print(r.headers)
-            print()
             return r
             
         except requests.ConnectionError as error:
