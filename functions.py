@@ -24,15 +24,19 @@ IMAGE = f"{ATTACHMENTE_DOMAIN}/board/tim.extension"
 
 
 def make_request(url, **kwargs):
+    first_time = True
     while True:
         try:
+            if not first_time:
+                print(f"Reintentando conexión con {url}")
+                
             r = requests.get(url, **kwargs)
             return r
             
         except requests.ConnectionError as error:
-            print(f"Error: {error}")
             print(f"Error al conectar con {url}. Renintentando en 5 segundos")
             time.sleep(5)
+            first_time = False
 
 
 def exists_thread_by_id(board, thread_id):
@@ -102,15 +106,14 @@ def download_attachment(board, post, path='.'):
     ext = post['ext']
     no = post['no']
     filename = post['filename']
-    r = make_request(f"{ATTACHMENTE_DOMAIN}/{board}/{tim}{ext}", "download_attchment", stream=True)
+    r = make_request(f"{ATTACHMENTE_DOMAIN}/{board}/{tim}{ext}", stream=True)
     if r.status_code == requests.codes.ok:
-        print(f"\tPost {no}: Descargando {filename}{ext} - {tim}")
         with open(os.path.join(path, f"{no} - {filename}{ext}"), 'wb') as attachment:
             for chunk in r.iter_content(chunk_size=1024):
                 attachment.write(chunk)
 
     else:
-        print(f"Error al descargar {tim}")
+        print(f"Error al descargar {tim} en post {post}")
 
 
 def get_thread_by_id(board, thread_id):
@@ -188,7 +191,6 @@ def download_thread(board, thread_id, path='.', start_from=0, wait=2):
         posts = thread.json()['posts']
         for i in range(start_from, len(posts)):
             if has_attachment(posts[i]):
-                print(f"Hilo {thread_id}: posts {posts[i]['no']} tiene archivo adjunto")
                 download_attachment(board, posts[i], final_path)
                 time.sleep(wait)
 
@@ -206,7 +208,6 @@ def track_thread(board, thread_id, path='.', update_time=15):
     # Thu, 01 Jan 1970 00:00:00 GMT
     thread = make_request(THREAD.replace("board", board).replace("no", thread_id))
     while True:
-        print("iniciando while de nuevo")
         if thread.status_code == requests.codes.not_found:
             raise Exception(f"Thread {thread_id} does not exist or has been deleted")
         
@@ -219,9 +220,7 @@ def track_thread(board, thread_id, path='.', update_time=15):
                 THREAD.replace("board", board).replace("no", thread_id),
                     headers=last_time
                 )
-            print(thread.status_code)
             if thread.status_code == requests.codes.not_modified:
-                print(f"Hilo {thread_id}: No hay posts nuevos")
                 time.sleep(update_time)
                 continue
             
