@@ -29,14 +29,14 @@ def make_request(url, **kwargs):
         try:
             if not first_time:
                 print(f"Reintentando conexión con {url}")
-                
+
             r = requests.get(url, **kwargs)
-            
+
             if not first_time:
-                print("Conexión exitosa a {url}")
+                print(f"Conexión exitosa a {url}")
             return r
-            
-        except requests.ConnectionError as error:
+
+        except requests.ConnectionError:
             print(f"Error al conectar con {url}. Renintentando en 5 segundos")
             time.sleep(5)
             first_time = False
@@ -60,7 +60,7 @@ def exists_thread_by_id(board, thread_id):
     r = make_request(THREAD.replace("board", board).replace("no", thread_id))
     if r.status_code == requests.codes.ok:
         return r
-    
+
     return None
 
 
@@ -111,7 +111,8 @@ def download_attachment(board, post, path='.'):
     filename = post['filename']
     r = make_request(f"{ATTACHMENTE_DOMAIN}/{board}/{tim}{ext}", stream=True)
     if r.status_code == requests.codes.ok:
-        with open(os.path.join(path, f"{no} - {filename}{ext}"), 'wb') as attachment:
+        with open(os.path.join(path, f"{no} - {filename}{ext}"),
+                  'wb') as attachment:
             for chunk in r.iter_content(chunk_size=1024):
                 attachment.write(chunk)
 
@@ -136,7 +137,10 @@ def get_thread_by_id(board, thread_id):
         DESCRIPTION.
 
     """
-    return make_request(THREAD.replace("board", board).replace("no", thread_id)).json()
+    return make_request(
+        THREAD.replace("board", board).replace("no", thread_id)
+        ).json()
+
 
 def get_catalog_by_broad(broad):
     return make_request(CATALOG.replace("broad", broad)).json()
@@ -159,14 +163,14 @@ def get_threads_by_keywords(board, keyboards=()):
         DESCRIPTION
 
     """
-    
+
     threads = set()
-    
+
     catalog = make_request(CATALOG.replace("board", board))
     if catalog.status_code == requests.codes.ok:
         # List of threads
         catalog_json = catalog.json()
-        
+
         for page in catalog_json:
             for thread in page['threads']:
                 s = thread['sub'].lower() if 'sub' in thread else ''
@@ -176,21 +180,23 @@ def get_threads_by_keywords(board, keyboards=()):
                     if k in s or k in c:
                         threads.add(str(thread['no']))
                         break
-                    
+
     else:
         print(f"Something went wrong trying to get catalog from board {board}")
-        
+
     return threads
 
 
-def download_thread(board, thread_id, path='.', start_from=0, wait=2):    
-    thread = requests.get(THREAD.replace("board", board).replace("no", thread_id))
+def download_thread(board, thread_id, path='.', start_from=0, wait=2):
+    thread = make_request(
+        THREAD.replace("board", board).replace("no", thread_id)
+        )
     if thread.status_code == requests.codes.ok:
         final_path = os.path.join(path, '.'+thread_id)
         wait = wait if wait < 2 else 2
         if not os.path.exists(final_path):
             os.mkdir(final_path)
-            
+
         posts = thread.json()['posts']
         for i in range(start_from, len(posts)):
             if has_attachment(posts[i]):
@@ -198,7 +204,8 @@ def download_thread(board, thread_id, path='.', start_from=0, wait=2):
                 time.sleep(wait)
 
     else:
-        raise Exception("Al descargar el hilo con id {thread_id} se obtuvo el codigo {thread.status_code}")
+        raise Exception("""Al descargar el hilo con id {thread_id} se obtuvo el codigo \
+                        {thread.status_code}""")
 
     return thread_id
 
@@ -206,25 +213,37 @@ def download_thread(board, thread_id, path='.', start_from=0, wait=2):
 def track_thread(board, thread_id, path='.', update_time=15):
     print(f"Tracking thread {thread_id}")
     last_post_index = 0
-    update_time = update_time if update_time > 15 else 15
-    # stupid off by one bug. Fix by setting last_time to epoch Thursday, 1 January 1970 0:00:00
+    # stupid off by one bug. Fix by setting last_time to epoch
+    # Thursday, 1 January 1970 0:00:00
     # Thu, 01 Jan 1970 00:00:00 GMT
-    thread = make_request(THREAD.replace("board", board).replace("no", thread_id))
+    thread = make_request(
+        THREAD.replace("board", board).replace("no", thread_id)
+        )
     while True:
         if thread.status_code == requests.codes.not_found:
-            raise Exception(f"Thread {thread_id} does not exist or has been deleted")
-        
-        print(f"Hilo {thread_id}: Hay {len(thread.json()['posts']) - last_post_index} posts nuevos")
-        download_thread(board, thread_id, path=path, start_from=last_post_index)
+            raise Exception(f"""Thread {thread_id} does not \
+                ¸exist or has been deleted""")
+
+        posts_nuevos = len(thread.json()['posts']) - last_post_index
+        print(f""""Hilo {thread_id}: Hay \
+            {posts_nuevos} posts nuevos""")
+        download_thread(
+            board, thread_id,
+            path=path,
+            start_from=last_post_index
+            )
         last_time = {'If-Modified-Since': thread.headers['Last-Modified']}
         last_post_index = len(thread.json()['posts'])
+        if posts_nuevos < 1:
+            # Se intenta corregir en caso de que se hayan borrado posts
+            last_post_index = last_post_index - posts_nuevos
         while True:
             thread = make_request(
                 THREAD.replace("board", board).replace("no", thread_id),
-                    headers=last_time
+                headers=last_time
                 )
             if thread.status_code == requests.codes.not_modified:
                 time.sleep(update_time)
                 continue
-            
+
             break
