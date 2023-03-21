@@ -204,9 +204,9 @@ def download_thread(board, thread_id, path='.', start_from=0, wait=2):
                 time.sleep(wait)
 
     else:
-        raise Exception("""Al descargar el hilo con id {thread_id} se obtuvo el codigo \
-                        {thread.status_code}""")
-
+        raise Exception(f"""Al descargar el hilo con id {thread_id} se obtuvo el codigo \
+            {thread.status_code}""")
+    
     return thread_id
 
 
@@ -222,11 +222,13 @@ def track_thread(board, thread_id, path='.', update_time=15):
     while True:
         if thread.status_code == requests.codes.not_found:
             raise Exception(f"""Thread {thread_id} does not \
-                ¸exist or has been deleted""")
+            exist or has been deleted""")
 
-        posts_nuevos = len(thread.json()['posts']) - last_post_index
-        print(f""""Hilo {thread_id}: Hay \
-            {posts_nuevos} posts nuevos""")
+        # To fix
+        # It does work, but does not take into considation deleted posts
+        new_posts = len(thread.json()['posts']) - last_post_index
+        print(f"""Hilo {thread_id}: Hay \
+            {new_posts} posts nuevos""")
         download_thread(
             board, thread_id,
             path=path,
@@ -234,9 +236,17 @@ def track_thread(board, thread_id, path='.', update_time=15):
             )
         last_time = {'If-Modified-Since': thread.headers['Last-Modified']}
         last_post_index = len(thread.json()['posts'])
-        if posts_nuevos < 1:
-            # Se intenta corregir en caso de que se hayan borrado posts
-            last_post_index = last_post_index - posts_nuevos
+        if new_posts < 1:
+            # Tries to find the new position of last_post_index in case
+            # posts have been deleted. Still, it does not work if the
+            # same amount of deleted posts have been created, resulting
+            # in 0 new posts.
+            # Maybe reverse linear search?
+            # Maybe binary search?
+            # log(350) = 8.45, most of the time will be in the far right position.
+            # Maybe save the 3 trailing posts in case posts in last_post_index
+            # has been deleted.
+            last_post_index = last_post_index - new_posts
         while True:
             thread = make_request(
                 THREAD.replace("board", board).replace("no", thread_id),
